@@ -21,6 +21,10 @@ DEFAULT_NUMBER_OF_JOBS = int(1e1)
 DEFAULT_NUMBER_OF_PARTICLES = int(1e8)
 DEFAULT_POSITION = [0, 0, 0]
 DEFAULT_STEP_SIZE = float(1)
+DEFAULT_WORLD = "G4_Galactic" #default material of the world volume
+DEFAULT_SAMPLE = "G4_WATER"   #default material of the sample volume
+DEFAULT_FILE_NAME = "simu_test"
+
 
 def opengate_run(
     output=DEFAULT_OUTPUT,
@@ -28,11 +32,28 @@ def opengate_run(
     number_of_particles=DEFAULT_NUMBER_OF_PARTICLES,
     visu=True, 
     verbose=False,
+    polarization=False,
+    energy_type=False,
+    world=DEFAULT_WORLD,
+    sample_material=DEFAULT_SAMPLE,
+    File_name=DEFAULT_FILE_NAME,
     position=DEFAULT_POSITION,
      ):
 
     if verbose:
         print(f"Running MC… " + str(locals())) #locals = variable locales soit les paramètres de la fonction
+
+    if polarization:
+        polarization = [1, 0, 0]
+        #print("Polarization is enabled")
+        #print(f"{polarization}")
+    else:
+        polarization = [0, 0, 0]  
+        #print("Polarization is disabled") 
+        #print(f"{polarization}")
+
+
+
     output_base = output #output_format(air_length_mm, water_length_mm, output)
     #output_base est un chemin
     new_pos = position
@@ -69,9 +90,11 @@ def opengate_run(
     # Geometry
     #sim.volume_manager.add_material_database(gate.utility.get_tests_folder() / '..' / 'data' / 'GateMaterials.db')
     sim.volume_manager.add_material_database("/home/ldauriac/Software/opengate/opengate/opengate/tests/data/GateMaterials.db")
+    sim.world.material = world
+    print(f"World's material is {sim.world.material}")
     #sim.world.material = 'Air'
     #sim.world.material = "G4_He"
-    sim.world.material = "G4_Galactic"
+    #sim.world.material = "G4_Galactic"
     sim.world.size = [40 * cm, 40 * cm, 40 * cm]
     sim.world.color = [0, 0, 0, 0]
 
@@ -100,11 +123,13 @@ def opengate_run(
     sample.rmax = 100*um
     sample.dz = 20*um
     sample.translation = [0,0,22*um]
+    sample.material = sample_material #material of the sample, can be changed with the command line argument
+    print(f"Sample's material is {sample.material}")
     #sample.material = "Water_3mgI"
     #sample.material = "H2O_I_Gd_mix"
     #sample.material = "Water_50mgI" #50mg/g d'Iode, on peut potentiellement monter jusqu'à 300mg/g comme du ioméron 400mg/ml de densité 1.35
     #sample.material = "Water_300mgI"
-    sample.material = "G4_Pt"
+    #sample.material = "ppmPtry"
     rotation_matrix_sample = R.from_euler('zy', [90,15], degrees=True).as_matrix()
     sample.rotation = rotation_matrix_sample
     sample.color = blue
@@ -145,14 +170,20 @@ def opengate_run(
     source.position.type = "point"
     source.direction.type = "momentum"
     source.direction.momentum = [0, 0, -1]
+    source.polarization = polarization
     #source.polarization = [1, 0, 0]
     source.position.translation = new_pos #décalée sur le pixel le plus à gauche pour commencer (elle prendra +100 sur x à chaque trans)
-    source.energy.mono = 100 * keV
-    #polychromatic source type
-    """source.energy.type = "spectrum_histogram" 
-    source.energy.spectrum_energy_bin_edges = xb * keV
-    source.energy.spectrum_weights = y"""
     source.n = number_of_particles
+
+    if energy_type:
+        print("Beam is in polychromatic mode")
+        source.energy.type = "spectrum_histogram" 
+        source.energy.spectrum_energy_bin_edges = xb * keV
+        source.energy.spectrum_weights = y
+    else: 
+        print("Beam is in monochromatic mode")
+        source.energy.mono = 100 * keV    
+    
     
     # Physics list
 
@@ -181,7 +212,8 @@ def opengate_run(
     HPGe_detection = sim.add_actor("DigitizerHitsCollectionActor" , "HPGe_test_detection")
     HPGe_detection.attached_to = ["HPGe"]
     HPGe_detection.attributes = ["TotalEnergyDeposit"]
-    HPGe_detection.output_filename = os.path.join(output_base, f"HPGE_detection_{job_id}.root")
+    #HPGe_detection.output_filename = os.path.join(output_base, f"HPGE_detection_{job_id}.root")
+    HPGe_detection.output_filename = os.path.join(output_base, f"{File_name}_{job_id}.root")
     #HPGe_detection.output_filename = os.path.join(output_base, f"Rasterscan_test_{job_id}.root")
     parfilter = sim.add_filter("ParticleFilter", "parfilter")
     parfilter.particle = "gamma"
@@ -216,13 +248,15 @@ def opengate_run(
 
 def root_visu(
     output=DEFAULT_OUTPUT,
-    verbose=False
+    verbose=False,
+    File_name=DEFAULT_FILE_NAME,
 ):
     def print_verbose(*args, **kwargs):
         if verbose:
             print(*args, **kwargs)
     try:
-        data = uproot.concatenate(os.path.join(output, 'HPGE_detection_*.root'), library='np')
+        #data = uproot.concatenate(os.path.join(output, 'HPGE_detection_*.root'), library='np')
+        data = uproot.concatenate(os.path.join(output, f'{File_name}_*.root'), library='np')
         #va chercher tous les fichiers qui commencent par HPGE_detection_ dans le dossier output et rassemble les données en une structure de type NumPy 
         #data = uproot.concatenate(os.path.join(output, 'Rasterscan_test_*.root'), library='np')
         ws = 1000 * data['TotalEnergyDeposit'] #multiplie tte les données par 1000 pour passer de MeV à keV
@@ -230,8 +264,10 @@ def root_visu(
     except FileNotFoundError:
         print("file not found")
 
-    myfile = uproot.recreate("HPGe.root")
-    myfile["HPGe"] = {"TotalEnergyDeposit": ws} #met dans le Ttree "HPGE" une branche TotalEnergyDeposit contenant les données de ws
+    #myfile = uproot.recreate("HPGe.root")
+    myfile = uproot.recreate(f"{File_name}.root")
+    #myfile["HPGe"] = {"TotalEnergyDeposit": ws} #met dans le Ttree "HPGE" une branche TotalEnergyDeposit contenant les données de ws
+    myfile[f"{File_name}"] = {"TotalEnergyDeposit": ws}
     #myfile = uproot.recreate("Rasterscan.root")
     #myfile["Rasterscan"] = {"TotalEnergyDeposit": ws}
 
@@ -259,6 +295,11 @@ def opengate_pool_run(
     number_of_particles,
     visu,
     verbose,
+    polarization,
+    energy_type,
+    world,
+    sample_material,
+    File_name,
     #step,
     #size,
 ):
@@ -320,6 +361,11 @@ def opengate_pool_run(
                 'visu': visu,
                 'verbose': verbose,
                 'position' : position,
+                'polarization': polarization,
+                'energy_type': energy_type,
+                'world' : world,
+                'sample_material' : sample_material,
+                'File_name': File_name
                 #'position' : copied_position,
                 })
                 results.append(result)
@@ -342,7 +388,8 @@ def opengate_pool_run(
 
     root_visu(
         output=output,
-        verbose=verbose
+        verbose=verbose,
+        File_name=File_name,
     )
 
                 
@@ -354,6 +401,11 @@ def main():
     parser.add_argument('-n', '--number-of-particles', help="Number of generated particles (total)", default=DEFAULT_NUMBER_OF_PARTICLES, type=int)
     parser.add_argument('--visu', help="Visualize Monte Carlo simulation", default=False, action='store_true')
     parser.add_argument('--verbose', '-v', help="Verbose execution", default=False, action='store_true')
+    parser.add_argument('-p', '--polarization', help="Polarization of the beam", default=False, action='store_true')
+    parser.add_argument('--energy_type', help="Type of energy distribution", default=False, action='store_true')#True active le mode polychromatique, rendre la commande plus clair après
+    parser.add_argument('-w', '--world', help="World's material", default=DEFAULT_WORLD, type=str)#pas besoin de mettre les guillemets au moment de la commande
+    parser.add_argument('-s', '--sample_material', help="sample's material", default=DEFAULT_SAMPLE, type=str)
+    parser.add_argument('-f', '--File_name', help="name of the output file", default=DEFAULT_FILE_NAME, type=str)
     #parser.add_argument('-step', '--step', help="size of a step between two succesive positions en mm", default=DEFAULT_STEP_SIZE, type=float)
     #parser.add_argument('-size', '--size', help="number of pixels in lines/columns", default=DEFAULT_STEP_SIZE, type=int)
     #parser.add_argument('-pos', '--number-of-positions', help="Number of positions to simulate", default=DEFAULT_NUMBER_OF_POSITIONS, type=int)
