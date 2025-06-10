@@ -24,6 +24,7 @@ DEFAULT_STEP_SIZE = float(1)
 DEFAULT_WORLD = "G4_Galactic" #default material of the world volume
 DEFAULT_SAMPLE = "G4_WATER"   #default material of the sample volume
 DEFAULT_FILE_NAME = "simu_test"
+DEFAULT_BEAM_ENERGY = 100 
 
 
 def opengate_run(
@@ -37,6 +38,8 @@ def opengate_run(
     world=DEFAULT_WORLD,
     sample_material=DEFAULT_SAMPLE,
     File_name=DEFAULT_FILE_NAME,
+    collimation=False,
+    energy = DEFAULT_BEAM_ENERGY,
     position=DEFAULT_POSITION,
      ):
 
@@ -91,7 +94,7 @@ def opengate_run(
     #sim.volume_manager.add_material_database(gate.utility.get_tests_folder() / '..' / 'data' / 'GateMaterials.db')
     sim.volume_manager.add_material_database("/home/ldauriac/Software/opengate/opengate/opengate/tests/data/GateMaterials.db")
     sim.world.material = world
-    print(f"World's material is {sim.world.material}")
+    #print(f"World's material is {sim.world.material}")
     #sim.world.material = 'Air'
     #sim.world.material = "G4_He"
     #sim.world.material = "G4_Galactic"
@@ -124,7 +127,7 @@ def opengate_run(
     sample.dz = 20*um
     sample.translation = [0,0,22*um]
     sample.material = sample_material #material of the sample, can be changed with the command line argument
-    print(f"Sample's material is {sample.material}")
+    #print(f"Sample's material is {sample.material}")
     #sample.material = "Water_3mgI"
     #sample.material = "H2O_I_Gd_mix"
     #sample.material = "Water_50mgI" #50mg/g d'Iode, on peut potentiellement monter jusqu'à 300mg/g comme du ioméron 400mg/ml de densité 1.35
@@ -134,25 +137,29 @@ def opengate_run(
     sample.rotation = rotation_matrix_sample
     sample.color = blue
 
-    """collimator = sim.add_volume("TubsVolume" , "collimator")
-    collimator.rmin = 5*mm
-    collimator.rmax = 7*mm
-    collimator.dz = 1*cm
-    collimator.material = "G4_Pb"
-    collimator.translation = [-5.8*cm, 0, 0]
-    rotation_matrix_detector = R.from_euler('y', -90, degrees=True).as_matrix()
-    collimator.rotation = rotation_matrix_detector 
-    collimator.color = red
+    if collimation:
+        collimator = sim.add_volume("TubsVolume" , "collimator")
+        collimator.rmin = 5*mm
+        collimator.rmax = 7*mm
+        collimator.dz = 1*cm
+        collimator.material = "G4_Pb"
+        collimator.translation = [-5.8*cm, 0, 0]
+        rotation_matrix_detector = R.from_euler('y', -90, degrees=True).as_matrix()
+        collimator.rotation = rotation_matrix_detector 
+        collimator.color = red
 
-    pin_hole = sim.add_volume("TubsVolume", "pin_hole")
-    pin_hole.rmin = 3*mm
-    pin_hole.rmax = 5*mm
-    pin_hole.dz = 1*mm
-    pin_hole.material = "G4_Pb"
-    pin_hole.translation = [-4.9*cm, 0, 0]
-    rotation_matrix_detector = R.from_euler('y', -90, degrees=True).as_matrix()
-    pin_hole.rotation = rotation_matrix_detector 
-    pin_hole.color = blue"""
+        pin_hole = sim.add_volume("TubsVolume", "pin_hole")
+        pin_hole.rmin = 3*mm
+        pin_hole.rmax = 5*mm
+        pin_hole.dz = 1*mm
+        pin_hole.material = "G4_Pb"
+        pin_hole.translation = [-4.9*cm, 0, 0]
+        rotation_matrix_detector = R.from_euler('y', -90, degrees=True).as_matrix()
+        pin_hole.rotation = rotation_matrix_detector 
+        pin_hole.color = blue
+
+    else:
+        print("collimation is disabled")
     
 
     # Beam
@@ -182,7 +189,7 @@ def opengate_run(
         source.energy.spectrum_weights = y
     else: 
         print("Beam is in monochromatic mode")
-        source.energy.mono = 100 * keV    
+        source.energy.mono = energy * keV    
     
     
     # Physics list
@@ -280,7 +287,7 @@ def root_visu(
     plt.hist(ws, bins=500, range=(0,100))
 
     plt.savefig(os.path.join(output, 'histo.pdf'))
-    plt.show()
+    #plt.show()
 
     delta1 = critical_angle.critical_angle(100)[0]
     delta2 = critical_angle.critical_angle(100)[1]
@@ -300,6 +307,8 @@ def opengate_pool_run(
     world,
     sample_material,
     File_name,
+    collimation,
+    energy,
     #step,
     #size,
 ):
@@ -365,7 +374,9 @@ def opengate_pool_run(
                 'energy_type': energy_type,
                 'world' : world,
                 'sample_material' : sample_material,
-                'File_name': File_name
+                'File_name': File_name,
+                'collimation' : collimation,
+                'energy' : energy,
                 #'position' : copied_position,
                 })
                 results.append(result)
@@ -406,6 +417,8 @@ def main():
     parser.add_argument('-w', '--world', help="World's material", default=DEFAULT_WORLD, type=str)#pas besoin de mettre les guillemets au moment de la commande
     parser.add_argument('-s', '--sample_material', help="sample's material", default=DEFAULT_SAMPLE, type=str)
     parser.add_argument('-f', '--File_name', help="name of the output file", default=DEFAULT_FILE_NAME, type=str)
+    parser.add_argument('-c', '--collimation', help="collimation of the beam", default=False, action='store_true')
+    parser.add_argument('-e', '--energy', help="Energy of the beam in keV", default=DEFAULT_BEAM_ENERGY, type= int)
     #parser.add_argument('-step', '--step', help="size of a step between two succesive positions en mm", default=DEFAULT_STEP_SIZE, type=float)
     #parser.add_argument('-size', '--size', help="number of pixels in lines/columns", default=DEFAULT_STEP_SIZE, type=int)
     #parser.add_argument('-pos', '--number-of-positions', help="Number of positions to simulate", default=DEFAULT_NUMBER_OF_POSITIONS, type=int)
