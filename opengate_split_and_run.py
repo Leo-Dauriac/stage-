@@ -114,7 +114,7 @@ def opengate_run(
     cell_vol = sim.add_volume("TubsVolume" , "cell_vol") #Cell volume 
     cell_vol.rmin = 0
     cell_vol.rmax = 10*mm
-    cell_vol.dz = 20*um
+    cell_vol.dz = 21*um
     cell_vol.material = "G4_WATER"
     cell_vol.translation = [0,0,22*um]
     rotation_matrix_cell = R.from_euler('zy', [90,-15], degrees=True).as_matrix()
@@ -122,10 +122,11 @@ def opengate_run(
     cell_vol.color = red
 
     sample = sim.add_volume("TubsVolume" , "sample") #target volume simulating the fluorescence emitter concentration
+    sample.mother = "cell_vol"
     sample.rmin = 0
     sample.rmax = 100*um
     sample.dz = 20*um
-    sample.translation = [0,0,22*um]
+    sample.translation = [0,0,0]
     sample.material = sample_material #material of the sample, can be changed with the command line argument
     #print(f"Sample's material is {sample.material}")
     #sample.material = "Water_3mgI"
