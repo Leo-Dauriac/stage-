@@ -134,8 +134,8 @@ def opengate_run(
     #sample.material = "Water_50mgI" #50mg/g d'Iode, on peut potentiellement monter jusqu'à 300mg/g comme du ioméron 400mg/ml de densité 1.35
     #sample.material = "Water_300mgI"
     #sample.material = "ppmPtry"
-    rotation_matrix_sample = R.from_euler('zy', [90,15], degrees=True).as_matrix()
-    sample.rotation = rotation_matrix_sample
+    #rotation_matrix_sample = R.from_euler('zy', [90,15], degrees=True).as_matrix()
+    #sample.rotation = rotation_matrix_sample
     sample.color = blue
 
     if collimation:
@@ -185,6 +185,11 @@ def opengate_run(
 
     if energy_type:
         print("Beam is in polychromatic mode")
+        #filter = sim.add_volume("BoxVolume", "filter")
+        #filter.size = [1*cm, 1*cm, 1*mm]
+        #filter.material = "G4_Ag"
+        #filter.translation = [0, 0, 19*cm]
+
         source.energy.type = "spectrum_histogram" 
         source.energy.spectrum_energy_bin_edges = xb * keV
         source.energy.spectrum_weights = y
@@ -208,7 +213,8 @@ def opengate_run(
     HPGe.rmin = 0
     HPGe.rmax = 5*mm
     HPGe.dz = 3*mm
-    HPGe.material = "G4_Ge"
+    #HPGe.material = "G4_Ge"
+    HPGe.material = "made_up_Ge"
     HPGe.color = yellow
     HPGe.translation = [-6.5*cm, 0, 0] 
     rotation_matrix_detector = R.from_euler('y', 90, degrees=True).as_matrix()
@@ -217,7 +223,7 @@ def opengate_run(
     
 
     #actor
-    HPGe_detection = sim.add_actor("DigitizerHitsCollectionActor" , "HPGe_test_detection")
+    """HPGe_detection = sim.add_actor("DigitizerHitsCollectionActor" , "HPGe_test_detection")
     HPGe_detection.attached_to = ["HPGe"]
     HPGe_detection.attributes = ["TotalEnergyDeposit"]
     #HPGe_detection.output_filename = os.path.join(output_base, f"HPGE_detection_{job_id}.root")
@@ -225,7 +231,33 @@ def opengate_run(
     #HPGe_detection.output_filename = os.path.join(output_base, f"Rasterscan_test_{job_id}.root")
     parfilter = sim.add_filter("ParticleFilter", "parfilter")
     parfilter.particle = "gamma"
-    HPGe_detection.filters.append(parfilter)
+    HPGe_detection.filters.append(parfilter)"""
+
+    # Digitizer actor
+
+    hc = sim.add_actor("DigitizerHitsCollectionActor", "Hits")
+    hc.attached_to = ["HPGe"]
+    #hc.output_filename = "test027.root"
+    hc.attributes = [
+        "KineticEnergy",
+        "PostPosition",
+        "PrePosition",
+        "TotalEnergyDeposit",
+        "GlobalTime",
+        "TrackVolumeName",
+        "TrackID",
+        "PostStepUniqueVolumeID",
+        "PreStepUniqueVolumeID",
+        "TrackVolumeCopyNo",
+        "TrackVolumeInstanceID",
+    ]
+
+    HPGe_detection = sim.add_actor("DigitizerAdderActor", "Singles")
+    HPGe_detection.attached_to = ["HPGe"]
+    HPGe_detection.output_filename = os.path.join(output_base, f"{File_name}_{job_id}.root")
+    HPGe_detection.input_digi_collection = "Hits"
+    HPGe_detection.policy = "EnergyWeightedCentroidPosition"
+    HPGe_detection.group_volume = HPGe.name
 
     # Particle stats
 
