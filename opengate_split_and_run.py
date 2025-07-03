@@ -15,6 +15,7 @@ from scipy.spatial.transform import Rotation as R
 import spekpy as sp
 import critical_angle 
 #import psutil
+import glob
 
 DEFAULT_OUTPUT = 'output' #file name where single root file are stocked
 DEFAULT_NUMBER_OF_JOBS = int(1e1)
@@ -25,6 +26,7 @@ DEFAULT_WORLD = "G4_Galactic" #default material of the world volume
 DEFAULT_SAMPLE = "G4_WATER"   #default material of the sample volume
 DEFAULT_FILE_NAME = "simu_test"
 DEFAULT_BEAM_ENERGY = 100 
+DEFAULT_DETECTOR = "G4_Ge"
 
 
 def opengate_run(
@@ -40,6 +42,8 @@ def opengate_run(
     File_name=DEFAULT_FILE_NAME,
     collimation=False,
     energy = DEFAULT_BEAM_ENERGY,
+    filter=False,
+    detector_material = DEFAULT_DETECTOR,
     position=DEFAULT_POSITION,
      ):
 
@@ -116,6 +120,7 @@ def opengate_run(
     cell_vol.rmax = 10*mm
     cell_vol.dz = 21*um
     cell_vol.material = "G4_WATER"
+
     cell_vol.translation = [0,0,22*um]
     rotation_matrix_cell = R.from_euler('zy', [90,-15], degrees=True).as_matrix()
     cell_vol.rotation = rotation_matrix_cell
@@ -159,19 +164,52 @@ def opengate_run(
         pin_hole.rotation = rotation_matrix_detector 
         pin_hole.color = blue
 
+        print("Collimation is enabled")
+
     else:
         print("collimation is disabled")
+
+    if filter:
+        filter = sim.add_volume("BoxVolume", "filter")
+        filter.size = [1*cm, 1*cm, 1*mm]
+        filter.material = "G4_Ag"
+        filter.translation = [0, 0, 19*cm]    
+
+        print("Manual filter is enabled")
+
+        ebin = 0.5
+        #energy_poly = 120
+        energy_poly = energy
+        spek = sp.Spek(kvp=energy_poly, th=12, dk=ebin,physics="casim", mu_data_source="pene", mas=1.0)
+        (x,y) = spek.get_spectrum()
+        xb = x - ebin/2.
+        kV=[energy_poly]
+        xb = np.append(xb,kV)
+
+    else:
+        print("Manual filter is disabled")  
+
+        ebin = 0.5
+        #energy_poly = 120
+        energy_poly = energy
+        spek = sp.Spek(kvp=energy_poly, th=12, dk=ebin,physics="casim", mu_data_source="pene", mas=1.0)
+        spek.filter('Ag', 1)
+        (x,y) = spek.get_spectrum()
+        xb = x - ebin/2.
+        kV=[energy_poly]
+        xb = np.append(xb,kV)  
     
 
     # Beam
-    ebin = 0.5
-    energy_poly = 120
+    """ebin = 0.5
+    #energy_poly = 120
+    energy_poly = energy
     spek = sp.Spek(kvp=energy_poly, th=12, dk=ebin,physics="casim", mu_data_source="pene", mas=1.0)
     spek.filter('Ag', 1)
     (x,y) = spek.get_spectrum()
     xb = x - ebin/2.
     kV=[energy_poly]
-    xb = np.append(xb,kV)
+    xb = np.append(xb,kV)"""
 
     source = sim.add_source('GenericSource' , "mybeam")
     source.particle = "gamma"
@@ -214,7 +252,8 @@ def opengate_run(
     HPGe.rmax = 5*mm
     HPGe.dz = 3*mm
     #HPGe.material = "G4_Ge"
-    HPGe.material = "made_up_Ge"
+    #HPGe.material = "G4_CdTe"
+    HPGe.material = detector_material
     HPGe.color = yellow
     HPGe.translation = [-6.5*cm, 0, 0] 
     rotation_matrix_detector = R.from_euler('y', 90, degrees=True).as_matrix()
@@ -266,7 +305,8 @@ def opengate_run(
     stat.output_filename = os.path.join(output_base, f'stats_{job_id}.txt')
 
     sim.run()
-    
+
+        
     #visualization
     # === Charger le fichier VRML avec PyVista ===
     """print("📂 Chargement du fichier VRML pour affichage...")
@@ -342,6 +382,8 @@ def opengate_pool_run(
     File_name,
     collimation,
     energy,
+    filter,
+    detector_material,
     #step,
     #size,
 ):
@@ -410,6 +452,8 @@ def opengate_pool_run(
                 'File_name': File_name,
                 'collimation' : collimation,
                 'energy' : energy,
+                'filter' : filter,
+                "detector_material" : detector_material,
                 #'position' : copied_position,
                 })
                 results.append(result)
@@ -452,6 +496,10 @@ def main():
     parser.add_argument('-f', '--File_name', help="name of the output file", default=DEFAULT_FILE_NAME, type=str)
     parser.add_argument('-c', '--collimation', help="collimation of the beam", default=False, action='store_true')
     parser.add_argument('-e', '--energy', help="Energy of the beam in keV", default=DEFAULT_BEAM_ENERGY, type= int)
+    parser.add_argument('--filter', help="manual Ag filter", default=False, action='store_true')
+    parser.add_argument('-d', '--detector_material', help="detector's material", default=DEFAULT_DETECTOR, type=str)
+
+
     #parser.add_argument('-step', '--step', help="size of a step between two succesive positions en mm", default=DEFAULT_STEP_SIZE, type=float)
     #parser.add_argument('-size', '--size', help="number of pixels in lines/columns", default=DEFAULT_STEP_SIZE, type=int)
     #parser.add_argument('-pos', '--number-of-positions', help="Number of positions to simulate", default=DEFAULT_NUMBER_OF_POSITIONS, type=int)
