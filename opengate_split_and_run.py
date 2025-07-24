@@ -134,35 +134,50 @@ def opengate_run(
     sample.translation = [0,0,0]
     sample.material = sample_material #material of the sample, can be changed with the command line argument
     #print(f"Sample's material is {sample.material}")
-    #sample.material = "Water_3mgI"
-    #sample.material = "H2O_I_Gd_mix"
-    #sample.material = "Water_50mgI" #50mg/g d'Iode, on peut potentiellement monter jusqu'à 300mg/g comme du ioméron 400mg/ml de densité 1.35
-    #sample.material = "Water_300mgI"
-    #sample.material = "ppmPtry"
     #rotation_matrix_sample = R.from_euler('zy', [90,15], degrees=True).as_matrix()
     #sample.rotation = rotation_matrix_sample
     sample.color = blue
 
     if collimation:
         collimator = sim.add_volume("TubsVolume" , "collimator")
-        collimator.rmin = 5*mm
-        collimator.rmax = 7*mm
-        collimator.dz = 1*cm
+        collimator.rmin = 5.5*mm
+        collimator.rmax = 7.5*mm
+        collimator.dz = 0.7*cm #1cm au départ
         collimator.material = "G4_Pb"
-        collimator.translation = [-5.8*cm, 0, 0]
+        collimator.translation = [-5.5*cm, 0, 0]#-5.8 au départ
         rotation_matrix_detector = R.from_euler('y', -90, degrees=True).as_matrix()
         collimator.rotation = rotation_matrix_detector 
         collimator.color = red
 
         pin_hole = sim.add_volume("TubsVolume", "pin_hole")
-        pin_hole.rmin = 3*mm
-        pin_hole.rmax = 5*mm
-        pin_hole.dz = 1*mm
-        pin_hole.material = "G4_Pb"
-        pin_hole.translation = [-4.9*cm, 0, 0]
+        pin_hole.rmin = 3.5*mm #3mm au départ
+        pin_hole.rmax = 5.5*mm
+        pin_hole.dz = 2*mm
+        pin_hole.material = "G4_Pb" #G4_PB au départ
+        pin_hole.translation = [-5*cm, 0, 0]##-4.9 au départ
         rotation_matrix_detector = R.from_euler('y', -90, degrees=True).as_matrix()
         pin_hole.rotation = rotation_matrix_detector 
         pin_hole.color = blue
+
+        surcollimator = sim.add_volume("TubsVolume", "surcolimator")
+        surcollimator.rmin = 7.5*mm
+        surcollimator.rmax = 9.5*mm
+        surcollimator.dz = 1*cm
+        surcollimator.material = "G4_W"
+        surcollimator.translation = [-5.8*cm, 0, 0]
+        rotation_matrix_detector = R.from_euler('y', -90, degrees=True).as_matrix()
+        surcollimator.rotation = rotation_matrix_detector
+        surcollimator.color = yellow
+
+        backcollimator = sim.add_volume("TubsVolume", "backcollimator")
+        backcollimator.rmin = 0*mm
+        backcollimator.rmax = 9.5*mm
+        backcollimator.dz = 2*mm
+        backcollimator.material = "G4_W"
+        backcollimator.translation = [-7*cm, 0, 0]
+        rotation_matrix_detector = R.from_euler('y', -90, degrees=True).as_matrix()
+        backcollimator.rotation = rotation_matrix_detector
+        backcollimator.color = red
 
         print("Collimation is enabled")
 
@@ -171,8 +186,10 @@ def opengate_run(
 
     if filter:
         filter = sim.add_volume("BoxVolume", "filter")
-        filter.size = [1*cm, 1*cm, 1*mm]
-        filter.material = "G4_Ag"
+        #filter.size = [1*cm, 1*cm, 1*mm]
+        #filter.material = "G4_Ag"
+        filter.size = [1*cm, 1*cm, 4*mm]
+        filter.material = "G4_Cu"
         filter.translation = [0, 0, 19*cm]    
 
         print("Manual filter is enabled")
@@ -254,23 +271,18 @@ def opengate_run(
     #HPGe.material = "G4_Ge"
     #HPGe.material = "G4_CdTe"
     HPGe.material = detector_material
-    HPGe.color = yellow
+    HPGe.color = blue
     HPGe.translation = [-6.5*cm, 0, 0] 
     rotation_matrix_detector = R.from_euler('y', 90, degrees=True).as_matrix()
     HPGe.rotation = rotation_matrix_detector 
 
-    
+    #volume sphérique pour refaire la première simu du rapport
+    """spheric_detector = sim.add_volume("SphereVolume", "spheric_detector") 
+    spheric_detector.rmin = 44*mm
+    spheric_detector.rmax = 50*mm
+    spheric_detector.material = "G4_Ge
+    spheric_detector.color = blue"""
 
-    #actor
-    """HPGe_detection = sim.add_actor("DigitizerHitsCollectionActor" , "HPGe_test_detection")
-    HPGe_detection.attached_to = ["HPGe"]
-    HPGe_detection.attributes = ["TotalEnergyDeposit"]
-    #HPGe_detection.output_filename = os.path.join(output_base, f"HPGE_detection_{job_id}.root")
-    HPGe_detection.output_filename = os.path.join(output_base, f"{File_name}_{job_id}.root")
-    #HPGe_detection.output_filename = os.path.join(output_base, f"Rasterscan_test_{job_id}.root")
-    parfilter = sim.add_filter("ParticleFilter", "parfilter")
-    parfilter.particle = "gamma"
-    HPGe_detection.filters.append(parfilter)"""
 
     # Digitizer actor
 
