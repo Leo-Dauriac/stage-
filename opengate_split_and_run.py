@@ -14,19 +14,18 @@ from scipy.optimize import curve_fit
 from scipy.spatial.transform import Rotation as R
 import spekpy as sp
 import critical_angle 
-#import psutil
 import glob
 
 DEFAULT_OUTPUT = 'output' #file name where single root file are stocked
-DEFAULT_NUMBER_OF_JOBS = int(1)
-DEFAULT_NUMBER_OF_PARTICLES = int(1e8)
-DEFAULT_POSITION = [0, 0, 0]
-DEFAULT_STEP_SIZE = float(1)
+DEFAULT_NUMBER_OF_JOBS = int(1) #number of jobs to run in parallel
+DEFAULT_NUMBER_OF_PARTICLES = int(1e8) #number of particles to simulate in total, divided by the number of jobs
+DEFAULT_POSITION = [0, 0, 0] #default beam position
+DEFAULT_STEP_SIZE = float(1) 
 DEFAULT_WORLD = "G4_Galactic" #default material of the world volume
 DEFAULT_SAMPLE = "G4_WATER"   #default material of the sample volume
-DEFAULT_FILE_NAME = "simu_test"
-DEFAULT_BEAM_ENERGY = 100 
-DEFAULT_DETECTOR = "G4_Ge"
+DEFAULT_FILE_NAME = "simu_test" #default name of the output file
+DEFAULT_BEAM_ENERGY = 100 #default energy of the beam in keV
+DEFAULT_DETECTOR = "G4_Ge" #default material of the detector volume
 
 
 def opengate_run(
@@ -98,15 +97,11 @@ def opengate_run(
     # Geometry
     #sim.volume_manager.add_material_database(gate.utility.get_tests_folder() / '..' / 'data' / 'GateMaterials.db')
     sim.volume_manager.add_material_database("/home/ldauriac/Software/opengate/opengate/opengate/tests/data/GateMaterials.db")
+    #sim.volume_manager.add_material_database("/home/ldauriac/Software/stage XFI/material_data/GateMaterials.db")
     sim.world.material = world
-    #print(f"World's material is {sim.world.material}")
-    #sim.world.material = 'Air'
-    #sim.world.material = "G4_He"
-    #sim.world.material = "G4_Galactic"
     sim.world.size = [40 * cm, 40 * cm, 40 * cm]
     sim.world.color = [0, 0, 0, 0]
 
-    # Phantom
 
     #Polyethylene film volume where the sample is placed
     membrane = sim.add_volume("BoxVolume" , "membrane")
@@ -121,7 +116,6 @@ def opengate_run(
     cell_vol.rmax = 10*mm
     cell_vol.dz = 21*um
     cell_vol.material = "G4_WATER"
-
     cell_vol.translation = [0,0,22*um]
     rotation_matrix_cell = R.from_euler('zy', [90,-15], degrees=True).as_matrix()
     cell_vol.rotation = rotation_matrix_cell
@@ -134,9 +128,6 @@ def opengate_run(
     sample.dz = 20*um
     sample.translation = [0,0,0]
     sample.material = sample_material #material of the sample, can be changed with the command line argument
-    #print(f"Sample's material is {sample.material}")
-    #rotation_matrix_sample = R.from_euler('zy', [90,15], degrees=True).as_matrix()
-    #sample.rotation = rotation_matrix_sample
     sample.color = blue
 
     if collimation:
@@ -188,16 +179,15 @@ def opengate_run(
 
     if filter:
         filter = sim.add_volume("BoxVolume", "filter")
-        #filter.size = [1*cm, 1*cm, 1*mm]
-        #filter.material = "G4_Ag"
-        filter.size = [1*cm, 1*cm, 4*mm]
-        filter.material = "G4_Cu"
+        filter.size = [1*cm, 1*cm, 1*mm]
+        filter.material = "G4_Ag"
+        #filter.size = [1*cm, 1*cm, 4*mm]
+        #filter.material = "G4_Cu"
         filter.translation = [0, 0, 19*cm]    
 
         print("Manual filter is enabled")
 
         ebin = 0.5
-        #energy_poly = 120
         energy_poly = energy
         spek = sp.Spek(kvp=energy_poly, th=12, dk=ebin,physics="casim", mu_data_source="pene", mas=1.0)
         (x,y) = spek.get_spectrum()
@@ -209,7 +199,6 @@ def opengate_run(
         print("Manual filter is disabled")  
 
         ebin = 0.5
-        #energy_poly = 120
         energy_poly = energy
         spek = sp.Spek(kvp=energy_poly, th=12, dk=ebin,physics="casim", mu_data_source="pene", mas=1.0)
         spek.filter('Ag', 1)
@@ -220,15 +209,6 @@ def opengate_run(
     
 
     # Beam
-    """ebin = 0.5
-    #energy_poly = 120
-    energy_poly = energy
-    spek = sp.Spek(kvp=energy_poly, th=12, dk=ebin,physics="casim", mu_data_source="pene", mas=1.0)
-    spek.filter('Ag', 1)
-    (x,y) = spek.get_spectrum()
-    xb = x - ebin/2.
-    kV=[energy_poly]
-    xb = np.append(xb,kV)"""
 
     source = sim.add_source('GenericSource' , "mybeam")
     source.particle = "gamma"
@@ -236,20 +216,15 @@ def opengate_run(
     source.direction.type = "momentum"
     source.direction.momentum = [0, 0, -1]
     source.polarization = polarization
-    #source.polarization = [1, 0, 0]
     source.position.translation = new_pos #décalée sur le pixel le plus à gauche pour commencer (elle prendra +100 sur x à chaque trans)
     source.n = number_of_particles
 
     if energy_type:
         print("Beam is in polychromatic mode")
-        #filter = sim.add_volume("BoxVolume", "filter")
-        #filter.size = [1*cm, 1*cm, 1*mm]
-        #filter.material = "G4_Ag"
-        #filter.translation = [0, 0, 19*cm]
-
         source.energy.type = "spectrum_histogram" 
         source.energy.spectrum_energy_bin_edges = xb * keV
         source.energy.spectrum_weights = y
+    
     else: 
         print("Beam is in monochromatic mode")
         source.energy.mono = energy * keV    
@@ -270,7 +245,7 @@ def opengate_run(
         HPGe = sim.add_volume("SphereVolume", "HPGe") 
         HPGe.rmin = 295*mm
         HPGe.rmax = 300*mm
-        HPGe.material = "G4_Ge"
+        HPGe.material = detector_material
         HPGe.color = blue
 
         print("spheric detector")
@@ -281,8 +256,6 @@ def opengate_run(
         HPGe.rmin = 0
         HPGe.rmax = 5*mm
         HPGe.dz = 3*mm
-        #HPGe.material = "G4_Ge"
-        #HPGe.material = "G4_CdTe"
         HPGe.material = detector_material
         HPGe.color = blue
         HPGe.translation = [-6.5*cm, 0, 0] 
@@ -359,21 +332,15 @@ def root_visu(
         if verbose:
             print(*args, **kwargs)
     try:
-        #data = uproot.concatenate(os.path.join(output, 'HPGE_detection_*.root'), library='np')
         data = uproot.concatenate(os.path.join(output, f'{File_name}_*.root'), library='np')
-        #va chercher tous les fichiers qui commencent par HPGE_detection_ dans le dossier output et rassemble les données en une structure de type NumPy 
-        #data = uproot.concatenate(os.path.join(output, 'Rasterscan_test_*.root'), library='np')
+        #va chercher tous les fichiers qui commencent par File_name_ dans le dossier output et rassemble les données en une structure de type NumPy 
         ws = 1000 * data['TotalEnergyDeposit'] #multiplie tte les données par 1000 pour passer de MeV à keV
         
     except FileNotFoundError:
         print("file not found")
 
-    #myfile = uproot.recreate("HPGe.root")
     myfile = uproot.recreate(f"{File_name}.root")
-    #myfile["HPGe"] = {"TotalEnergyDeposit": ws} #met dans le Ttree "HPGE" une branche TotalEnergyDeposit contenant les données de ws
-    myfile[f"{File_name}"] = {"TotalEnergyDeposit": ws}
-    #myfile = uproot.recreate("Rasterscan.root")
-    #myfile["Rasterscan"] = {"TotalEnergyDeposit": ws}
+    myfile[f"{File_name}"] = {"TotalEnergyDeposit": ws} #met dans le Ttree "HPGE" une branche TotalEnergyDeposit contenant les données de ws
 
     #showing final concatenated root file    
     fig = plt.figure()
@@ -395,7 +362,7 @@ def root_visu(
 
 def opengate_pool_run(
     output,
-    number_of_jobs, #mettre autant que de positions sinon on ne simule pas toutes les particules
+    number_of_jobs, #mettre autant que de positions pour le rasterscan sinon on ne simule pas toutes les particules
     number_of_particles,
     visu,
     verbose,
@@ -422,7 +389,7 @@ def opengate_pool_run(
         mm = gate.g4_units.mm
         um = gate.g4_units.um
         cm = gate.g4_units.cm
-        position = [0, 0, 20*cm] #position initiale à 30um -> trop proche de la source
+        position = [0, 0, 20*cm] 
         #delta_x = 0.1*mm #pas du raster scan pour passer d'un pixel à l'autre
         #delta_x = step*mm
         #delta_y = -step*mm
@@ -449,6 +416,16 @@ def opengate_pool_run(
                 'number_of_particles': number_of_particles_per_job,
                 'visu': visu,
                 'verbose': verbose,
+                'polarization': polarization,
+                'energy_type': energy_type,
+                'world' : world,
+                'sample_material' : sample_material,
+                'File_name': File_name,
+                'collimation' : collimation,
+                'energy' : energy,
+                'filter' : filter,
+                "detector_material" : detector_material,
+                "detector_type" : detector_type,
                 'position': copied_position
                 #'position' : position 
                 })
@@ -460,9 +437,7 @@ def opengate_pool_run(
         for i in range(number_of_jobs):
             
                 job_id = i+1
-                #copied_position = position.copy()
                 print(f"launching job #{job_id}/{number_of_jobs}")
-                #print(f"launching job #{job_id}/{number_of_jobs} with position x={copied_position[0]/mm:.2f} mm")
                 result = pool.apply_async(opengate_run, kwds={
                 'output': output,
                 'job_id': job_id, 
@@ -480,7 +455,6 @@ def opengate_pool_run(
                 'filter' : filter,
                 "detector_material" : detector_material,
                 "detector_type" : detector_type,
-                #'position' : copied_position,
                 })
                 results.append(result)
                 #position[0] += delta_x
@@ -516,22 +490,19 @@ def main():
     parser.add_argument('--visu', help="Visualize Monte Carlo simulation", default=False, action='store_true')
     parser.add_argument('--verbose', '-v', help="Verbose execution", default=False, action='store_true')
     parser.add_argument('-p', '--polarization', help="Polarization of the beam", default=False, action='store_true')
-    parser.add_argument('--energy_type', help="Type of energy distribution", default=False, action='store_true')#True active le mode polychromatique, rendre la commande plus clair après
-    parser.add_argument('-w', '--world', help="World's material", default=DEFAULT_WORLD, type=str)#pas besoin de mettre les guillemets au moment de la commande
+    parser.add_argument('--energy_type', help="Type of energy distribution", default=False, action='store_true')#--energy_type activates polychromatic mode
+    parser.add_argument('-w', '--world', help="World's material", default=DEFAULT_WORLD, type=str)
     parser.add_argument('-s', '--sample_material', help="sample's material", default=DEFAULT_SAMPLE, type=str)
     parser.add_argument('-f', '--File_name', help="name of the output file", default=DEFAULT_FILE_NAME, type=str)
     parser.add_argument('-c', '--collimation', help="collimation of the beam", default=False, action='store_true')
     parser.add_argument('-e', '--energy', help="Energy of the beam in keV", default=DEFAULT_BEAM_ENERGY, type= int)
-    parser.add_argument('--filter', help="manual Ag filter", default=False, action='store_true')
+    parser.add_argument('--filter', help="manual Ag filter", default=False, action='store_true')#--filter activates manual filter
     parser.add_argument('-d', '--detector_material', help="detector's material", default=DEFAULT_DETECTOR, type=str)
-    parser.add_argument('--detector_type', help="type of detector", default=False,  action='store_true')
-
-
+    parser.add_argument('--detector_type', help="type of detector", default=False,  action='store_true')#--detector_type activates spheric detector
     #parser.add_argument('-step', '--step', help="size of a step between two succesive positions en mm", default=DEFAULT_STEP_SIZE, type=float)
     #parser.add_argument('-size', '--size', help="number of pixels in lines/columns", default=DEFAULT_STEP_SIZE, type=int)
     #parser.add_argument('-pos', '--number-of-positions', help="Number of positions to simulate", default=DEFAULT_NUMBER_OF_POSITIONS, type=int)
-    #argument position initiale ?     
-    #argument pour le nombre de position à couvrir (taille de l'image à balayer en gros)
+    
     args_info = parser.parse_args()
 
     opengate_pool_run(**vars(args_info))
