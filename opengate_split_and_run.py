@@ -18,7 +18,7 @@ import critical_angle
 import glob
 
 DEFAULT_OUTPUT = 'output' #file name where single root file are stocked
-DEFAULT_NUMBER_OF_JOBS = int(1e1)
+DEFAULT_NUMBER_OF_JOBS = int(1)
 DEFAULT_NUMBER_OF_PARTICLES = int(1e8)
 DEFAULT_POSITION = [0, 0, 0]
 DEFAULT_STEP_SIZE = float(1)
@@ -44,6 +44,7 @@ def opengate_run(
     energy = DEFAULT_BEAM_ENERGY,
     filter=False,
     detector_material = DEFAULT_DETECTOR,
+    detector_type=False,
     position=DEFAULT_POSITION,
      ):
 
@@ -139,6 +140,7 @@ def opengate_run(
     sample.color = blue
 
     if collimation:
+        
         collimator = sim.add_volume("TubsVolume" , "collimator")
         collimator.rmin = 5.5*mm
         collimator.rmax = 7.5*mm
@@ -263,25 +265,35 @@ def opengate_run(
     sim.physics_manager.global_production_cuts.electron = 100 * um
 
     # HPGe Detector + Hits Collection
-    
-    HPGe = sim.add_volume("TubsVolume" , "HPGe")
-    HPGe.rmin = 0
-    HPGe.rmax = 5*mm
-    HPGe.dz = 3*mm
-    #HPGe.material = "G4_Ge"
-    #HPGe.material = "G4_CdTe"
-    HPGe.material = detector_material
-    HPGe.color = blue
-    HPGe.translation = [-6.5*cm, 0, 0] 
-    rotation_matrix_detector = R.from_euler('y', 90, degrees=True).as_matrix()
-    HPGe.rotation = rotation_matrix_detector 
 
-    #volume sphérique pour refaire la première simu du rapport
-    """spheric_detector = sim.add_volume("SphereVolume", "spheric_detector") 
-    spheric_detector.rmin = 44*mm
-    spheric_detector.rmax = 50*mm
-    spheric_detector.material = "G4_Ge
-    spheric_detector.color = blue"""
+    if detector_type:
+        HPGe = sim.add_volume("SphereVolume", "HPGe") 
+        HPGe.rmin = 295*mm
+        HPGe.rmax = 300*mm
+        HPGe.material = "G4_Ge"
+        HPGe.color = blue
+
+        print("spheric detector")
+    
+    else:
+
+        HPGe = sim.add_volume("TubsVolume" , "HPGe")
+        HPGe.rmin = 0
+        HPGe.rmax = 5*mm
+        HPGe.dz = 3*mm
+        #HPGe.material = "G4_Ge"
+        #HPGe.material = "G4_CdTe"
+        HPGe.material = detector_material
+        HPGe.color = blue
+        HPGe.translation = [-6.5*cm, 0, 0] 
+        rotation_matrix_detector = R.from_euler('y', 90, degrees=True).as_matrix()
+        HPGe.rotation = rotation_matrix_detector 
+
+        print("cylindric detector")
+
+
+    
+    
 
 
     # Digitizer actor
@@ -396,6 +408,7 @@ def opengate_pool_run(
     energy,
     filter,
     detector_material,
+    detector_type,
     #step,
     #size,
 ):
@@ -466,6 +479,7 @@ def opengate_pool_run(
                 'energy' : energy,
                 'filter' : filter,
                 "detector_material" : detector_material,
+                "detector_type" : detector_type,
                 #'position' : copied_position,
                 })
                 results.append(result)
@@ -510,6 +524,7 @@ def main():
     parser.add_argument('-e', '--energy', help="Energy of the beam in keV", default=DEFAULT_BEAM_ENERGY, type= int)
     parser.add_argument('--filter', help="manual Ag filter", default=False, action='store_true')
     parser.add_argument('-d', '--detector_material', help="detector's material", default=DEFAULT_DETECTOR, type=str)
+    parser.add_argument('--detector_type', help="type of detector", default=False,  action='store_true')
 
 
     #parser.add_argument('-step', '--step', help="size of a step between two succesive positions en mm", default=DEFAULT_STEP_SIZE, type=float)
@@ -523,3 +538,4 @@ def main():
     #opengate_run(output, 1, number_of_particles, visu, verbose)
 if __name__ == '__main__':
     main()
+    opengate_run()
